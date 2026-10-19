@@ -16,7 +16,7 @@ jobs:
       - name: Check out exact PR head
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: db6f120a6c7c48ed1dd1aea5d06d78f1dce6f99f
+          ref: 4a90366b73dad70f36ef796b4ac63a30131be1e0
           persist-credentials: false
       - name: Set up Go matching upstream CI
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
@@ -26,13 +26,13 @@ jobs:
       - name: Verify source and toolchain
         working-directory: components/execd
         run: |
-          test "$(git rev-parse HEAD)" = db6f120a6c7c48ed1dd1aea5d06d78f1dce6f99f
+          test "$(git rev-parse HEAD)" = 4a90366b73dad70f36ef796b4ac63a30131be1e0
           go version
           go env GOOS GOARCH
       - name: Check changed Go file formatting
         working-directory: components/execd
         run: |
-          files="$(gofmt -l pkg/isolation/upper.go pkg/runtime/isolated_session_ctrl.go pkg/runtime/isolated_session_stats_test.go pkg/telemetry/init.go pkg/telemetry/isolation.go pkg/telemetry/isolation_gauge_test.go)"
+          files="$(gofmt -l pkg/isolation/upper.go pkg/isolation/upper_test.go pkg/runtime/isolated_session_ctrl.go pkg/runtime/isolated_session_stats_test.go pkg/telemetry/init.go pkg/telemetry/isolation.go pkg/telemetry/isolation_gauge_test.go)"
           if [ -n "$files" ]; then
             printf '%s\n' "$files"
             exit 1
