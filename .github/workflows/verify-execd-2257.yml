@@ -1,0 +1,47 @@
+name: Verify execd PR 2257
+
+on:
+  push:
+    branches:
+      - verify/execd-2257-20261019
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: db6f120a6c7c48ed1dd1aea5d06d78f1dce6f99f
+          persist-credentials: false
+      - name: Set up Go matching upstream CI
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.25.9'
+          cache: false
+      - name: Verify source and toolchain
+        working-directory: components/execd
+        run: |
+          test "$(git rev-parse HEAD)" = db6f120a6c7c48ed1dd1aea5d06d78f1dce6f99f
+          go version
+          go env GOOS GOARCH
+      - name: Check changed Go file formatting
+        working-directory: components/execd
+        run: |
+          files="$(gofmt -l pkg/isolation/upper.go pkg/runtime/isolated_session_ctrl.go pkg/runtime/isolated_session_stats_test.go pkg/telemetry/init.go pkg/telemetry/isolation.go pkg/telemetry/isolation_gauge_test.go)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+      - name: Test actual isolation, runtime and telemetry packages
+        if: ${{ !cancelled() }}
+        working-directory: components/execd
+        run: go test -count=1 -timeout=5m ./pkg/isolation ./pkg/runtime ./pkg/telemetry
+      - name: Race-check new metric regressions
+        if: ${{ !cancelled() }}
+        working-directory: components/execd
+        run: go test -race -count=1 -timeout=5m ./pkg/runtime ./pkg/telemetry -run '^Test(IsolationStatsSnapshotUpperUsageValidity|IsolationUsageGaugeOmitsInvalidMeasurements)$'
