@@ -1,0 +1,46 @@
+name: Verify CLI PR 2272
+
+on:
+  push:
+    branches:
+      - verify/cli-2272-20261019
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-cli-2272-20261019
+  cancel-in-progress: true
+
+jobs:
+  cli-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 764010f35917e8d5c0173c3f74c9a3009ea3c707
+          persist-credentials: false
+      - name: Set up uv and Python matching upstream CLI CI
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          python-version: '3.11'
+          enable-cache: false
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = 764010f35917e8d5c0173c3f74c9a3009ea3c707
+      - name: Install locked CLI and local SDK dependencies
+        id: dependencies
+        run: uv sync --frozen
+      - name: Check complete CLI lint
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: uv run --frozen ruff check
+      - name: Check complete CLI types
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: uv run --frozen pyright
+      - name: Run complete CLI test suite
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: uv run --frozen pytest tests/ -q
