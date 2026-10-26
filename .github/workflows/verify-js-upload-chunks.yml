@@ -1,0 +1,92 @@
+name: Verify JS upload chunk snapshots
+
+on:
+  push:
+    branches:
+      - verification/js-upload-chunks-20261026
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 6209892b50ab2ec8d804a65a525d057429de2010
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+          cache-dependency-path: sdks/pnpm-lock.yaml
+      - name: Install frozen SDK dependencies
+        working-directory: sdks
+        run: pnpm install --frozen-lockfile
+      - name: Build, lint, typecheck and run the complete sandbox SDK tests
+        working-directory: sdks/sandbox/javascript
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --version
+          pnpm run build
+          pnpm run lint
+          pnpm run typecheck
+          node --test tests/*.test.mjs | tee sdk-tests.log
+      - name: Prove the same regression fails with the original production code
+        working-directory: sdks/sandbox/javascript
+        run: |
+          set -euo pipefail
+          for file in filesystemAdapter.ts isolatedFilesystemAdapter.ts; do
+            git show ca1ba1d9f0e9c75e6fd04c09ab97bb051af01b90:sdks/sandbox/javascript/src/adapters/$file > src/adapters/$file
+          done
+          pnpm run build
+          set +e
+          node --test tests/filesystem.upload-chunks.test.mjs > baseline-regression.log 2>&1
+          result=$?
+          set -e
+          cat baseline-regression.log
+          test "$result" -eq 1
+          grep -qx '# fail 9' baseline-regression.log
+          grep -qx '# pass 7' baseline-regression.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdk-node-${{ matrix.node }}
+          path: |
+            sdks/sandbox/javascript/sdk-tests.log
+            sdks/sandbox/javascript/baseline-regression.log
+          retention-days: 7
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 6209892b50ab2ec8d804a65a525d057429de2010
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+      - name: Build the complete docs site
+        working-directory: docs
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          pnpm install --frozen-lockfile
+          pnpm docs:build
