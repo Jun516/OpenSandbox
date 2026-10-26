@@ -47,6 +47,7 @@ jobs:
         working-directory: sdks/sandbox/javascript
         run: |
           set -euo pipefail
+          git fetch --no-tags --depth=1 origin ca1ba1d9f0e9c75e6fd04c09ab97bb051af01b90
           for file in filesystemAdapter.ts isolatedFilesystemAdapter.ts; do
             git show ca1ba1d9f0e9c75e6fd04c09ab97bb051af01b90:sdks/sandbox/javascript/src/adapters/$file > src/adapters/$file
           done
